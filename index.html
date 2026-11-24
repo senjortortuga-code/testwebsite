@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Die Quizshow – 10 Fragen, 1 Ziel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Alfa+Slab+One&family=Figtree:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #0d1030;
+    --stage: #262b73;
+    --gold: #f4b830;
+    --paper: #f7f2e6;
+    --ok: #34b87a;
+    --bad: #e2515f;
+    --line: rgba(247,242,230,.22);
+    --display: "Alfa Slab One", Georgia, "Times New Roman", serif;
+    --body: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; }
+  body {
+    font-family: var(--body);
+    color: var(--paper);
+    background: radial-gradient(ellipse 80% 60% at 50% 0%, var(--stage) 0%, var(--ink) 70%) fixed, var(--ink);
+    line-height: 1.5;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 24px 18px 48px; }
+  h1, h2 { font-family: var(--display); font-weight: 400; margin: 0; line-height: 1.1; }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  :focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; }
+
+  /* Start & Ende */
+  .screen { display: none; text-align: center; padding: 8vh 0 0; }
+  .screen.on { display: block; }
+  .screen h1 { font-size: clamp(2.6rem, 9vw, 5rem); color: var(--gold); }
+  .screen p { max-width: 46ch; margin: 18px auto 32px; font-size: 1.1rem; }
+  .big { font-family: var(--display); font-size: clamp(2.4rem, 8vw, 4rem); color: var(--gold); margin: 6px 0 0; }
+  .btn {
+    background: var(--gold); color: var(--ink); border: 0; border-radius: 999px;
+    padding: 14px 34px; font-weight: 700; font-size: 1.1rem;
+  }
+  .btn:hover { filter: brightness(1.08); }
+
+  /* Spiel */
+  #game { display: none; }
+  #game.on { display: grid; gap: 22px; grid-template-columns: 1fr 190px; align-items: start; }
+  .ladder {
+    list-style: none; margin: 0; padding: 0; order: 2;
+    display: flex; flex-direction: column-reverse; gap: 4px;
+  }
+  .ladder li {
+    display: flex; justify-content: space-between; gap: 8px;
+    padding: 7px 12px; border-radius: 8px; font-weight: 600; font-size: .92rem;
+    border: 1px solid var(--line); opacity: .75;
+  }
+  .ladder li.safe { border-color: var(--gold); }
+  .ladder li.done { opacity: .45; }
+  .ladder li.now { background: var(--gold); color: var(--ink); opacity: 1; border-color: var(--gold); }
+
+  .main { order: 1; }
+  .meta { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 14px; }
+  .level { font-weight: 600; color: var(--gold); }
+  .joker {
+    border: 2px solid var(--gold); background: transparent; border-radius: 999px;
+    padding: 6px 16px; font-weight: 700;
+  }
+  .joker:disabled { opacity: .35; cursor: default; text-decoration: line-through; }
+  .question {
+    font-family: var(--display); font-size: clamp(1.4rem, 4.2vw, 2.1rem);
+    padding: 28px 24px; border: 2px solid var(--gold); border-radius: 18px;
+    background: rgba(13,16,48,.65); min-height: 7.5em; display: flex; align-items: center;
+  }
+  .answers { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px; }
+  .ans {
+    display: flex; gap: 12px; align-items: center; text-align: left;
+    padding: 16px 18px; border-radius: 12px; border: 2px solid var(--line);
+    background: rgba(13,16,48,.65); font-size: 1.05rem; font-weight: 600;
+    transition: border-color .15s, background .15s;
+  }
+  .ans b { color: var(--gold); font-family: var(--display); font-weight: 400; }
+  .ans:hover:not(:disabled) { border-color: var(--gold); }
+  .ans.picked { background: var(--gold); color: var(--ink); border-color: var(--gold); }
+  .ans.picked b { color: var(--ink); }
+  .ans.right { background: var(--ok); border-color: var(--ok); color: #05261a; }
+  .ans.right b { color: #05261a; }
+  .ans.wrong { background: var(--bad); border-color: var(--bad); color: #2b0509; }
+  .ans.wrong b { color: #2b0509; }
+  .ans.gone { visibility: hidden; }
+  .ans:disabled { cursor: default; }
+  .hint { min-height: 3.2em; margin: 16px 0 0; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  .hint p { margin: 0; flex: 1 1 260px; }
+
+  @media (max-width: 720px) {
+    #game.on { grid-template-columns: 1fr; }
+    .ladder { order: 0; flex-direction: row-reverse; gap: 3px; }
+    .ladder li { flex: 1; justify-content: center; padding: 6px 0; font-size: .72rem; }
+    .ladder li span:last-child { display: none; }
+    .answers { grid-template-columns: 1fr; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <section class="screen on" id="start">
+    <h1>Die Quizshow</h1>
+    <p>Zehn Fragen, von einfach bis fast unmöglich. Eine falsche Antwort beendet das Spiel. Bei Frage 5 ist dein Gewinn sicher. Einen 50:50-Joker hast du auch.</p>
+    <button class="btn" id="startBtn">Spiel starten</button>
+  </section>
+
+  <section id="game" aria-live="polite">
+    <div class="main">
+      <div class="meta">
+        <span class="level" id="level"></span>
+        <button class="joker" id="joker">50:50</button>
+      </div>
+      <h2 class="question" id="question"></h2>
+      <div class="answers" id="answers"></div>
+      <div class="hint" id="hint"></div>
+    </div>
+    <ol class="ladder" id="ladder" aria-label="Gewinnstufen"></ol>
+  </section>
+
+  <section class="screen" id="end">
+    <h1 id="endTitle"></h1>
+    <p id="endText"></p>
+    <div class="big" id="endPrize"></div>
+    <p></p>
+    <button class="btn" id="againBtn">Nochmal spielen</button>
+  </section>
+
+</div>
+
+<script>
+  // Fragen: je weiter unten, desto schwerer. Die erste Antwort ist jeweils die richtige.
+  // Die Reihenfolge der Antworten wird beim Spielen zufällig gemischt.
+  const QUESTIONS = [
+    { q: "Welche Farbe entsteht, wenn man Blau und Gelb mischt?",
+      a: ["Grün", "Orange", "Lila", "Braun"] },
+    { q: "Wie viele Bundesländer hat Deutschland?",
+      a: ["16", "14", "15", "17"] },
+    { q: "Welches ist das größte lebende Landtier?",
+      a: ["Afrikanischer Elefant", "Nashorn", "Giraffe", "Flusspferd"] },
+    { q: "In welchem Jahr fiel die Berliner Mauer?",
+      a: ["1989", "1961", "1990", "1985"] },
+    { q: "Wie lautet das chemische Symbol für Gold?",
+      a: ["Au", "Ag", "Go", "Gd"] },
+    { q: "Wer schrieb die Erzählung „Die Verwandlung“?",
+      a: ["Franz Kafka", "Thomas Mann", "Hermann Hesse", "Robert Musil"] },
+    { q: "Welcher ist der längste Fluss Europas?",
+      a: ["Wolga", "Donau", "Rhein", "Dnepr"] },
+    { q: "Wofür erhielt Albert Einstein 1921 den Nobelpreis für Physik?",
+      a: ["Erklärung des photoelektrischen Effekts", "Spezielle Relativitätstheorie", "Allgemeine Relativitätstheorie", "Deutung der Brownschen Bewegung"] },
+    { q: "Wer bewies den Großen Fermatschen Satz?",
+      a: ["Andrew Wiles", "Terence Tao", "Paul Erdős", "John Nash"] },
+    { q: "Welcher Mathematiker lehnte 2006 die Fields-Medaille ab?",
+      a: ["Grigori Perelman", "Alexander Grothendieck", "Michael Atiyah", "Edward Witten"] }
+  ];
+  const PRIZES = [50, 100, 200, 300, 500, 1000, 2000, 4000, 8000, 16000];
+  const SAFE = 4; // Index der sicheren Stufe (Frage 5)
+  const LETTERS = ["A", "B", "C", "D"];
+  const eur = n => n.toLocaleString("de-DE") + " €";
+
+  const $ = id => document.getElementById(id);
+  let step = 0, jokerUsed = false, locked = false, picked = null, options = [];
+
+  function show(id) {
+    ["start", "end"].forEach(s => $(s).classList.toggle("on", s === id));
+    $("game").classList.toggle("on", id === "game");
+  }
+
+  function shuffle(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
+
+  function drawLadder() {
+    $("ladder").innerHTML = PRIZES.map((p, i) => {
+      const cls = [i === SAFE ? "safe" : "", i < step ? "done" : "", i === step ? "now" : ""].join(" ");
+      return `<li class="${cls}"><span>${i + 1}</span><span>${eur(p)}</span></li>`;
+    }).join("");
+  }
+
+  function start() {
+    step = 0; jokerUsed = false;
+    $("joker").disabled = false;
+    show("game");
+    ask();
+  }
+
+  function ask() {
+    locked = false; picked = null;
+    const item = QUESTIONS[step];
+    options = shuffle(item.a.map((text, i) => ({ text, ok: i === 0 })));
+    $("level").textContent = `Frage ${step + 1} von ${QUESTIONS.length} · ${eur(PRIZES[step])}`;
+    $("question").textContent = item.q;
+    $("hint").innerHTML = "";
+    $("answers").innerHTML = options.map((o, i) =>
+      `<button class="ans" data-i="${i}"><b>${LETTERS[i]}</b><span>${o.text}</span></button>`
+    ).join("");
+    drawLadder();
+  }
+
+  function buttons() { return [...document.querySelectorAll(".ans")]; }
+
+  function pick(i) {
+    if (locked) return;
+    picked = i;
+    buttons().forEach((b, k) => b.classList.toggle("picked", k === i));
+    $("hint").innerHTML = `<p>Ist <strong>${LETTERS[i]}</strong> deine endgültige Antwort?</p><button class="btn" id="lockBtn">Endgültig antworten</button>`;
+    $("lockBtn").onclick = lock;
+  }
+
+  function lock() {
+    locked = true;
+    const btns = buttons();
+    btns.forEach(b => (b.disabled = true));
+    const rightIdx = options.findIndex(o => o.ok);
+    btns[rightIdx].classList.add("right");
+    const won = picked === rightIdx;
+    if (!won) btns[picked].classList.add("wrong");
+    btns[picked].classList.remove("picked");
+    const last = step === QUESTIONS.length - 1;
+
+    if (won) {
+      $("hint").innerHTML = `<p><strong>Richtig!</strong> Du hast jetzt ${eur(PRIZES[step])}.</p>
+        <button class="btn" id="nextBtn">${last ? "Zum Ergebnis" : "Nächste Frage"}</button>`;
+      $("nextBtn").onclick = () => { if (last) finish(true); else { step++; ask(); } };
+    } else {
+      $("hint").innerHTML = `<p><strong>Leider falsch.</strong> Richtig wäre ${LETTERS[rightIdx]} gewesen.</p>
+        <button class="btn" id="nextBtn">Weiter</button>`;
+      $("nextBtn").onclick = () => finish(false);
+    }
+    $("nextBtn").focus();
+  }
+
+  function finish(win) {
+    show("end");
+    if (win) {
+      $("endTitle").textContent = "Gewonnen!";
+      $("endText").textContent = "Alle zehn Fragen richtig. Du bist ein echter Quiz-Champion.";
+      $("endPrize").textContent = eur(PRIZES[PRIZES.length - 1]);
+    } else {
+      const prize = step > SAFE ? PRIZES[SAFE] : 0;
+      $("endTitle").textContent = "Das war's";
+      $("endText").textContent = `Du bist bei Frage ${step + 1} ausgeschieden. Dein Gewinn:`;
+      $("endPrize").textContent = eur(prize);
+    }
+  }
+
+  function fiftyFifty() {
+    if (jokerUsed || locked) return;
+    jokerUsed = true;
+    $("joker").disabled = true;
+    const wrong = options.map((o, i) => (o.ok ? -1 : i)).filter(i => i >= 0);
+    shuffle(wrong).slice(0, 2).forEach(i => {
+      const b = buttons()[i];
+      b.classList.add("gone");
+      b.disabled = true;
+      if (picked === i) { picked = null; $("hint").innerHTML = ""; }
+    });
+  }
+
+  $("answers").addEventListener("click", e => {
+    const b = e.target.closest(".ans");
+    if (b && !b.disabled) pick(+b.dataset.i);
+  });
+  $("startBtn").onclick = start;
+  $("againBtn").onclick = start;
+  $("joker").onclick = fiftyFifty;
+</script>
+</body>
+</html>
